@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gaussian Splat Viewer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #ffffff;
+        }
+        
+        .viewer-container {
+            position: relative;
+            width: 60%;
+            height: 60%;
+            max-width: 1200px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        #canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            position: absolute;
+        }
+        
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            padding: 0 20px;
+            box-sizing: border-box;
+            z-index: 10;
+        }
+        
+        .url-input {
+            width: 100%;
+            display: flex;
+            max-width: 600px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        .splat-select {
+            min-width: 140px;
+            padding: 12px 15px;
+            border: none;
+            background: rgba(240, 240, 240, 0.8);
+            font-size: 14px;
+            outline: none;
+            cursor: pointer;
+            border-right: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        
+        #splat-url {
+            flex: 1;
+            padding: 12px 15px;
+            border: none;
+            background: transparent;
+            font-size: 14px;
+            outline: none;
+        }
+        
+        #load-button {
+            padding: 12px 20px;
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        #load-button:hover {
+            background-color: #3367d6;
+        }
+        
+        .bg-control {
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            border-left: 1px solid rgba(0, 0, 0, 0.1);
+            background-color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .bg-control label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: 5px;
+        }
+        
+        .bg-control input {
+            margin-right: 5px;
+            cursor: pointer;
+        }
+
+        #fullscreen-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 36px;
+            height: 36px;
+            background-color: rgba(0, 0, 0, 0.4);
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            z-index: 10;
+            opacity: 0.3;
+            transition: opacity 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #fullscreen-button:hover {
+            opacity: 1;
+        }
+
+        #fullscreen-button svg {
+            width: 18px;
+            height: 18px;
+            fill: white;
+        }
+        
+        .attribution {
+            position: absolute;
+            left: 20px;
+            top: 20px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 12px;
+            font-weight: 300;
+            color: #333;
+            z-index: 10;
+            line-height: 1.4;
+        }
+        
+        .attribution .title {
+            font-size: 18px;
+            font-weight: 600;
+            display: block;
+            margin-bottom: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="attribution">
+        <span class="title">Gaussian-splat Viewer Demo</span>
+        Jaidevh Kabo
+    </div>
+    
+    <div class="viewer-container">
+        <canvas id="canvas"></canvas>
+        <button id="fullscreen-button" title="Toggle fullscreen">
+            <svg viewBox="0 0 24 24">
+                <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+            </svg>
+        </button>
+    </div>
+    
+    <div class="controls">
+        <div class="url-input">
+            <select class="splat-select" id="splat-select">
+                <option value="">Select a Model</option>
+                <option value="0" selected>Art Gallery</option>
+                <option value="1">Ape Scuplture</option>
+                <option value="2">The Hunt</option>
+                <option value="3">Living Room</option>
+                <option value="4">Garden Scene</option>
+                <option value="5">Small Office</option>
+                <option value="6">Modern Bedroom</option>
+                <option value="7">Urban Street</option>
+                <option value="8">Cafe Interior</option>
+                <option value="9">Bookstore</option>
+            </select>
+            <input type="text" id="splat-url" placeholder="Enter Luma Splat URL" value="https://lumalabs.ai/capture/c58c6905-0224-4fd4-afbf-21af61a7770c">
+            <button id="load-button">Load</button>
+            <div class="bg-control">
+                <label for="bg-removal">
+                    <input type="checkbox" id="bg-removal">
+                    Remove BG
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.157.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.157.0/examples/jsm/",
+            "@lumaai/luma-web": "https://unpkg.com/@lumaai/luma-web@0.2.0/dist/library/luma-web.module.js"
+        }
+    }
+    </script>
+    <script type="module">
+        import { WebGLRenderer, PerspectiveCamera, Scene, Color, Vector3, Euler } from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { LumaSplatsThree, LumaSplatsSemantics } from '@lumaai/luma-web';
+
+        // Predefined splats with rotations
+        const predefinedSplats = [
+            {
+                name: "Art Gallery",
+                url: "https://lumalabs.ai/capture/c58c6905-0224-4fd4-afbf-21af61a7770c",
+                rotation: { x: -50, y: Math.PI, z: 0 }
+            },
+            {
+                name: "Vintage Toy Store",
+                url: "https://lumalabs.ai/capture/68c59e1a-b1ef-419d-9557-ddd79908090d",
+                rotation: { x: 0, y: Math.PI, z: 0 }
+            },
+            {
+                name: "Kitchen Interior",
+                url: "https://lumalabs.ai/capture/b5aaad0a-a780-48c4-8bc3-b0925786bb70",
+                rotation: { x: 0, y: Math.PI, z: 0 }
+            },
+            {
+                name: "Living Room",
+                url: "https://lumalabs.ai/capture/08e5c599-0741-4476-bb1b-ade902f01169",
+                rotation: { x: 0, y: Math.PI, z: 0 }
+            },
+            {
+                name: "Garden Scene",
+                url: "https://lumalabs.ai/capture/4aaae1ed-1b25-4856-8168-1789633b632b",
+                rotation: { x: 0, y: Math.PI, z: 0 }
+            },
+            {
+                name: "Small Office",
+                url: "https://lumalabs.ai/capture/b46ae7cf-0e40-431a-9d7e-45bc3ec516c6",
+                rotation: { x: 0, y: Math.PI, z: 0 }
+            },
+            {
+                name: "Modern Bedroom",
+                url: "https://lumalabs.ai/capture/f45a5f26-3b70-4bfa-9c7a-5d95a1df942f",
+                rotation: { x: 0, y: Math.PI, z: 0 }
+            },
+            {
+                name: "Urban Street",
+                url: "https://lumalabs.ai/capture/422972cb-59f7-46e0-87dc-36015cb7286b",
+                rotation: { x: 0, y: Math.PI, z: 0 }
+            },
+            {
+                name: "Cafe Interior",
+                url: "https://lumalabs.ai/capture/337ba289-f7d2-432b-b1dc-4bb19f6d2b2e",
+                rotation: { x: 0, y: Math.PI, z: 0 }
+            },
+            {
+                name: "Bookstore",
+                url: "https://lumalabs.ai/capture/c6a87349-02cb-4500-a326-af8d635d66fc",
+                rotation: { x: 0, y: Math.PI, z: 0 }
+            }
+        ];
+
+        // Get DOM elements
+        const canvas = document.getElementById('canvas');
+        const splatsUrlInput = document.getElementById('splat-url');
+        const loadButton = document.getElementById('load-button');
+        const fullscreenButton = document.getElementById('fullscreen-button');
+        const bgRemovalCheckbox = document.getElementById('bg-removal');
+        const splatSelect = document.getElementById('splat-select');
+        
+        // Setup renderer
+        const renderer = new WebGLRenderer({ 
+            canvas: canvas,
+            antialias: false 
+        });
+        
+        renderer.domElement.style.position = 'absolute';
+        renderer.domElement.style.width = '100%';
+        renderer.domElement.style.height = '100%';
+        
+        // Setup camera
+        const camera = new PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 2;
+        
+        // Setup controls
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        
+        // Setup scene
+        const scene = new Scene();
+        scene.background = new Color(0xffffff);
+        
+        // Splat object reference
+        let splat = null;
+        
+        // Auto-rotation variables
+        let lastActivityTime = Date.now();
+        const inactivityTimeout = 5000; // 5 seconds in milliseconds (changed from 1 minute)
+        let isAutoRotating = false;
+        const autoRotationSpeed = 0.05; // Rotation speed (radians per second)
+        
+        // Function to reset inactivity timer
+        function resetActivityTimer() {
+            lastActivityTime = Date.now();
+            if (isAutoRotating) {
+                isAutoRotating = false;
+            }
+        }
+        
+        // Add event listeners for user activity - only checking clicks now, not mouse movement
+        // document.addEventListener('mousemove', resetActivityTimer); // Removed mouse movement listener
+        document.addEventListener('click', resetActivityTimer);
+        document.addEventListener('keydown', resetActivityTimer);
+        document.addEventListener('touchstart', resetActivityTimer);
+        controls.addEventListener('change', resetActivityTimer);
+        
+        // Function to update background removal
+        function updateBackgroundRemoval() {
+            if (!splat) return;
+            
+            if (bgRemovalCheckbox.checked) {
+                // Remove background, keep foreground
+                splat.semanticsMask = LumaSplatsSemantics.FOREGROUND;
+                // Ensure white background
+                scene.background = new Color(0xffffff);
+            } else {
+                // Show everything
+                splat.semanticsMask = LumaSplatsSemantics.BACKGROUND | LumaSplatsSemantics.FOREGROUND;
+                // Keep white background
+                scene.background = new Color(0xffffff);
+            }
+        }
+        
+        // Function to load a splat
+        function loadSplat(url, rotation = { x: 0, y: Math.PI, z: 0 }) {
+            // Remove existing splat if any
+            if (splat) {
+                scene.remove(splat);
+                splat.dispose();
+            }
+            
+            // Create new splat
+            splat = new LumaSplatsThree({
+                source: url,
+                loadingAnimationEnabled: false,
+                // High quality settings
+                sortingEnabled: true,
+                sortingMostDetailedPercent: 0.8,
+                maxScreenSpaceSplatSize: 2048,
+                gpuAcceleratedSorting: true,
+                splatSize: 1.0
+            });
+            
+            // Apply rotation
+            splat.rotation.x = rotation.x;
+            splat.rotation.y = rotation.y;
+            splat.rotation.z = rotation.z;
+            
+            // Add to scene
+            scene.add(splat);
+            
+            // Apply current background removal setting
+            updateBackgroundRemoval();
+        }
+        
+        // Animation loop
+        function frameLoop() {
+            // Handle canvas resize
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight;
+            
+            if (canvas.width !== width || canvas.height !== height) {
+                camera.aspect = width / height;
+                camera.updateProjectionMatrix();
+                renderer.setSize(width, height, false);
+            }
+            
+            // Check for inactivity
+            const currentTime = Date.now();
+            if (!isAutoRotating && currentTime - lastActivityTime > inactivityTimeout && splat) {
+                isAutoRotating = true;
+            }
+            
+            // Apply auto-rotation if active
+            if (isAutoRotating && splat) {
+                // Calculate rotation based on time for smooth movement
+                const rotationAmount = autoRotationSpeed * (1/60); // Assuming ~60fps
+                splat.rotation.y += rotationAmount;
+            }
+            
+            // Update controls
+            controls.update();
+            
+            // Render
+            renderer.render(scene, camera);
+        }
+        
+        // Start animation loop
+        renderer.setAnimationLoop(frameLoop);
+        
+        // Event listeners
+        loadButton.addEventListener('click', () => {
+            const url = splatsUrlInput.value.trim();
+            if (url) {
+                loadSplat(url);
+            }
+        });
+        
+        // Background removal checkbox
+        bgRemovalCheckbox.addEventListener('change', updateBackgroundRemoval);
+        
+        // Dropdown change event
+        splatSelect.addEventListener('change', () => {
+            const selectedIndex = parseInt(splatSelect.value);
+            if (!isNaN(selectedIndex) && selectedIndex >= 0 && selectedIndex < predefinedSplats.length) {
+                const selected = predefinedSplats[selectedIndex];
+                splatsUrlInput.value = selected.url;
+                loadSplat(selected.url, selected.rotation);
+            }
+        });
+        
+        // Fullscreen functionality
+        fullscreenButton.addEventListener('click', () => {
+            const viewerContainer = document.querySelector('.viewer-container');
+            
+            if (!document.fullscreenElement) {
+                // Enter fullscreen
+                if (viewerContainer.requestFullscreen) {
+                    viewerContainer.requestFullscreen();
+                } else if (viewerContainer.webkitRequestFullscreen) {
+                    viewerContainer.webkitRequestFullscreen();
+                } else if (viewerContainer.msRequestFullscreen) {
+                    viewerContainer.msRequestFullscreen();
+                }
+            } else {
+                // Exit fullscreen
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+            }
+        });
+        
+        // Load initial splat
+        loadSplat(predefinedSplats[0].url, predefinedSplats[0].rotation);
+    </script>
+</body>
+</html> 
